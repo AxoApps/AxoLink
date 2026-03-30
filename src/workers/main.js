@@ -48,6 +48,14 @@ const HIBERNATION_TIMEOUT =
 
 initLogger(config)
 
+process.on('uncaughtException', (err) => {
+  logger('error', 'Worker', `Uncaught exception: ${err?.message ?? err}`)
+})
+
+process.on('unhandledRejection', (reason) => {
+  logger('error', 'Worker', `Unhandled rejection: ${reason?.message ?? reason}`)
+})
+
 const players = new Map()
 const guildQueues = new Map() // guildId -> { queue: [], processing: false }
 const activeStreams = new Map()
