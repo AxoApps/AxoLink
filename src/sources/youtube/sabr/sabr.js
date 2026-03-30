@@ -610,7 +610,15 @@ export class SabrStream extends PassThrough {
         }
       }
     } catch (e) {
-      if (!this.destroyed) this.destroy(e)
+      if (this._aborted || this.destroyed) return
+
+      logger('error', 'SABR', `Unhandled loop error for ${this.videoId}: ${e?.message ?? e}`)
+  
+      if (!this.destroyed) {
+        this.push(null)
+        this._aborted = true
+        this.abortController.abort()
+      }
     }
   }
 
@@ -618,7 +626,12 @@ export class SabrStream extends PassThrough {
     if (this._aborted) return
     this._aborted = true
     this.abortController.abort()
-    super.destroy(err)
+    if (err && this.listenerCount('error') === 0) {
+      logger('error', 'SABR', `Stream destroyed with error: ${err?.message ?? err}`)
+      super.destroy()
+    } else {
+      super.destroy(err)
+    }
   }
 
   updateSession(config) {
