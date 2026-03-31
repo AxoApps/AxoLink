@@ -14,6 +14,43 @@ async function getStreamProcessor() {
   createSeekeableAudioResource = processor.createSeekeableAudioResource
 }
 
+function _guardStream(stream) {
+  const originalWrite = stream.write?.bind(stream)
+  const originalPush = stream.push?.bind(stream)
+  const originalEnd = stream.end?.bind(stream)
+
+  if (originalWrite) {
+    stream.write = (chunk, encoding, cb) => {
+      if (stream.destroyed || stream.writableEnded) return false
+      return originalWrite(chunk, encoding, cb)
+    }
+  }
+
+  if (originalPush) {
+    stream.push = (chunk, encoding) => {
+      if (stream.destroyed || stream.readableEnded) return false
+      try {
+        return originalPush(chunk, encoding)
+      } catch (err) {
+        if (err.code === 'ERR_STREAM_PUSH_AFTER_EOF') {
+          logger('warn', 'Player', `Suppressed stream.push() after EOF`)
+          return false
+        }
+        throw err
+      }
+    }
+  }
+
+  if (originalEnd) {
+    stream.end = (chunk, encoding, cb) => {
+      if (stream.destroyed || stream.writableEnded) return stream
+      return originalEnd(chunk, encoding, cb)
+    }
+  }
+
+  return stream
+}
+
 export class Player {
   constructor(options) {
     if (
@@ -553,7 +590,10 @@ export class Player {
           stream: data
         })
       })
+
+      fetched.stream = _guardStream(fetched.stream)
     }
+
     const resource = createAudioResource(
       fetched.stream,
       fetched.type || urlData.format,
