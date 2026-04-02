@@ -544,7 +544,7 @@ process.on('uncaughtException', (err) => {
     'Worker–Crash',
     `Uncaught Exception: ${err.stack || err.message}`
   )
-  //process.stderr.write('', () => process.exit(1))
+  process.stderr.write('', () => process.exit(1))
 })
 
 process.on('unhandledRejection', (reason, promise) => {
